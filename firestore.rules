@@ -1,0 +1,258 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // === Global Hardened Primitives ===
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Cek apakah akun terdaftar di koleksi panitia dan berstatus aktif
+    function isActivePanitia() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/panitia/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/panitia/$(request.auth.uid)).data.active == true &&
+        get(/databases/$(database)/documents/panitia/$(request.auth.uid)).data.role in ['admin', 'panitia'];
+    }
+
+    // Cek peran admin penuh (dari koleksi panitia atau email sekolah terverifikasi)
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        (
+          exists(/databases/$(database)/documents/panitia/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/panitia/$(request.auth.uid)).data.active == true &&
+          get(/databases/$(database)/documents/panitia/$(request.auth.uid)).data.role == 'admin'
+        ) ||
+        (request.auth.token.email == 'smpn1tambak.sch@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isAdmin() {
+      return isActivePanitia() || isSuperAdmin();
+    }
+
+    function isElectionOpen() {
+      return exists(/databases/$(database)/documents/settings/election) &&
+        get(/databases/$(database)/documents/settings/election).data.isElectionOpen == true;
+    }
+
+    function areResultsPublic() {
+      return exists(/databases/$(database)/documents/settings/election) && (
+        get(/databases/$(database)/documents/settings/election).data.isElectionOpen == false ||
+        get(/databases/$(database)/documents/settings/election).data.showPublicResults == true
+      );
+    }
+
+    // === Validation Blueprints ===
+    function isValidSettings(data) {
+      return data.keys().hasAll([
+          'schoolName', 'schoolLogoUrl', 'isElectionOpen',
+          'voteTimeoutSeconds', 'resetAfterSubmitSeconds',
+          'officerMode', 'showPublicResults', 'announcement', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schoolName', 'schoolLogoUrl', 'isElectionOpen',
+          'voteTimeoutSeconds', 'resetAfterSubmitSeconds',
+          'officerMode', 'showPublicResults', 'announcement', 'updatedAt'
+        ]) &&
+        data.schoolName is string && data.schoolName.size() >= 1 && data.schoolName.size() <= 120 &&
+        data.schoolLogoUrl is string && data.schoolLogoUrl.size() <= 500 &&
+        data.isElectionOpen is bool &&
+        data.voteTimeoutSeconds is int && data.voteTimeoutSeconds >= 15 && data.voteTimeoutSeconds <= 600 &&
+        data.resetAfterSubmitSeconds is int && data.resetAfterSubmitSeconds >= 1 && data.resetAfterSubmitSeconds <= 60 &&
+        data.officerMode is bool &&
+        data.showPublicResults is bool &&
+        data.announcement is string && data.announcement.size() <= 300 &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidCandidate(data) {
+      return data.keys().hasAll([
+          'org', 'number', 'ketuaName', 'wakilName',
+          'photoUrl', 'vision', 'mission', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'org', 'number', 'ketuaName', 'wakilName',
+          'photoUrl', 'vision', 'mission', 'createdAt', 'updatedAt'
+        ]) &&
+        data.org in ['OSIS', 'PRAMUKA', 'PMR'] &&
+        data.number is int && data.number >= 1 && data.number <= 99 &&
+        data.ketuaName is string && data.ketuaName.size() >= 1 && data.ketuaName.size() <= 100 &&
+        data.wakilName is string && data.wakilName.size() >= 1 && data.wakilName.size() <= 100 &&
+        data.photoUrl is string && data.photoUrl.size() <= 500 &&
+        data.vision is string && data.vision.size() >= 1 && data.vision.size() <= 1000 &&
+        data.mission is string && data.mission.size() >= 1 && data.mission.size() <= 3000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVoter(data, voterId) {
+      return data.keys().hasAll([
+          'voterNumber', 'name', 'classOrRole', 'category',
+          'hasVoted', 'votedAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'voterNumber', 'name', 'classOrRole', 'category',
+          'hasVoted', 'votedAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.voterNumber is string && data.voterNumber.size() >= 1 && data.voterNumber.size() <= 40 &&
+        data.voterNumber == voterId &&
+        isValidId(data.voterNumber) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.classOrRole is string && data.classOrRole.size() >= 1 && data.classOrRole.size() <= 80 &&
+        data.category in ['siswa', 'guru', 'karyawan'] &&
+        data.hasVoted is bool &&
+        (data.votedAt == null || data.votedAt is timestamp) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVote(data) {
+      return data.keys().hasAll([
+          'electionScope', 'osisCandidateId', 'pramukaCandidateId', 'pmrCandidateId', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'electionScope', 'osisCandidateId', 'pramukaCandidateId', 'pmrCandidateId', 'createdAt'
+        ]) &&
+        data.electionScope == 'smpn1tambak' &&
+        isValidId(data.osisCandidateId) &&
+        isValidId(data.pramukaCandidateId) &&
+        isValidId(data.pmrCandidateId) &&
+        data.createdAt == request.time;
+    }
+
+    function isValidPanitia(data) {
+      return data.keys().hasAll([
+          'email', 'name', 'role', 'active', 'mustChangePassword', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'email', 'name', 'role', 'active', 'mustChangePassword', 'createdAt', 'updatedAt'
+        ]) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.role in ['admin', 'panitia'] &&
+        data.active is bool &&
+        data.mustChangePassword is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // === Collection Rules ===
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'election';
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(settingId) && settingId == 'election' && isValidSettings(incoming());
+      allow update: if isAdmin() && isValidId(settingId) && settingId == 'election' && isValidSettings(incoming());
+      allow delete: if false;
+    }
+
+    match /candidates/{candidateId} {
+      allow get: if isValidId(candidateId);
+      allow list: if resource.data.org in ['OSIS', 'PRAMUKA', 'PMR'];
+      allow create: if isAdmin() && isValidId(candidateId) && isValidCandidate(incoming()) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(candidateId) && isValidCandidate(incoming()) &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(candidateId);
+    }
+
+    match /voters/{voterId} {
+      // Bilik suara hanya boleh get 1 dokumen berdasarkan NISN/NIP/NIK persis; list hanya untuk admin/panitia
+      allow get: if isValidId(voterId);
+      allow list: if isAdmin() && resource.data.category in ['siswa', 'guru', 'karyawan'];
+      allow create: if isAdmin() && isValidId(voterId) && isValidVoter(incoming(), voterId) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time &&
+        incoming().hasVoted == false && incoming().votedAt == null;
+      allow update: if isValidId(voterId) && isValidVoter(incoming(), voterId) && (
+        // Action 1: Panitia/Admin mengubah data pemilih atau mereset data uji coba
+        (isAdmin() &&
+          incoming().voterNumber == existing().voterNumber &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'classOrRole', 'category', 'hasVoted', 'votedAt', 'updatedAt'])
+        ) ||
+        // Action 2: Bilik suara menandai sudah memilih (kunci terminal: false -> true)
+        (isElectionOpen() &&
+          existing().hasVoted == false &&
+          incoming().hasVoted == true &&
+          incoming().votedAt == request.time &&
+          incoming().updatedAt == request.time &&
+          incoming().voterNumber == existing().voterNumber &&
+          incoming().name == existing().name &&
+          incoming().classOrRole == existing().classOrRole &&
+          incoming().category == existing().category &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['hasVoted', 'votedAt', 'updatedAt'])
+        )
+      );
+      allow delete: if isAdmin() && isValidId(voterId);
+    }
+
+    match /votes/{voteId} {
+      allow get: if isValidId(voteId) && (isAdmin() || areResultsPublic());
+      allow list: if (isAdmin() || areResultsPublic()) && resource.data.electionScope == 'smpn1tambak';
+      allow create: if isValidId(voteId) &&
+        isValidVote(incoming()) &&
+        isElectionOpen() &&
+        get(/databases/$(database)/documents/candidates/$(incoming().osisCandidateId)).data.org == 'OSIS' &&
+        get(/databases/$(database)/documents/candidates/$(incoming().pramukaCandidateId)).data.org == 'PRAMUKA' &&
+        get(/databases/$(database)/documents/candidates/$(incoming().pmrCandidateId)).data.org == 'PMR';
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(voteId);
+    }
+
+    match /panitia/{panitiaId} {
+      // Pengguna terautentikasi dapat membaca dokumen perannya sendiri
+      allow get: if isSignedIn() && isValidId(panitiaId) && (request.auth.uid == panitiaId || isSuperAdmin());
+      allow list: if isSuperAdmin() && resource.data.role in ['admin', 'panitia'];
+      allow create: if isValidId(panitiaId) && isValidPanitia(incoming()) &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time && (
+          // Hanya SuperAdmin yang boleh menambah akun panitia baru
+          isSuperAdmin() ||
+          // Bootstrap pertama kali khusus akun admin awal admin@spensata.sch.id
+          (isSignedIn() &&
+            request.auth.uid == panitiaId &&
+            request.auth.token.email == 'admin@spensata.sch.id' &&
+            incoming().email == 'admin@spensata.sch.id' &&
+            incoming().role == 'admin' &&
+            incoming().active == true)
+        );
+      allow update: if isValidId(panitiaId) && isValidPanitia(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // SuperAdmin dapat mengubah nama, peran, status aktif, dan flag ganti password
+          (isSuperAdmin() &&
+            incoming().email == existing().email &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'active', 'mustChangePassword', 'updatedAt'])
+          ) ||
+          // Pemilik akun hanya boleh menandai mustChangePassword = false setelah mengganti password
+          (isSignedIn() &&
+            request.auth.uid == panitiaId &&
+            incoming().email == existing().email &&
+            incoming().name == existing().name &&
+            incoming().role == existing().role &&
+            incoming().active == existing().active &&
+            incoming().mustChangePassword == false &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['mustChangePassword', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin() && isValidId(panitiaId) && panitiaId != request.auth.uid;
+    }
+  }
+}

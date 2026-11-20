@@ -1,0 +1,6 @@
+{
+  "name": "E-Voting SMP Negeri 1 Tambak",
+  "description": "Aplikasi web e-voting pemilihan Ketua & Wakil OSIS, Pramuka, dan PMR SMP Negeri 1 Tambak dengan sesi bilik otomatis dan dashboard quick count realtime.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

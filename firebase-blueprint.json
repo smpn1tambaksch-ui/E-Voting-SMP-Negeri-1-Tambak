@@ -1,0 +1,298 @@
+{
+  "entities": {
+    "ElectionSettings": {
+      "title": "ElectionSettings",
+      "description": "Pengaturan global pemilihan dan sesi bilik suara SMP Negeri 1 Tambak.",
+      "type": "object",
+      "properties": {
+        "schoolName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nama sekolah penyelenggara pemilihan."
+        },
+        "schoolLogoUrl": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Link Google Drive asli untuk logo sekolah."
+        },
+        "isElectionOpen": {
+          "type": "boolean",
+          "description": "Status apakah pemilihan sedang dibuka untuk bilik suara."
+        },
+        "voteTimeoutSeconds": {
+          "type": "integer",
+          "description": "Batas waktu memilih per sesi bilik dalam detik (15-600)."
+        },
+        "resetAfterSubmitSeconds": {
+          "type": "integer",
+          "description": "Waktu jeda sebelum layar bilik kembali ke awal setelah submit dalam detik (1-60)."
+        },
+        "officerMode": {
+          "type": "boolean",
+          "description": "Toggle mode petugas untuk mengaktifkan sesi bilik oleh panitia."
+        },
+        "showPublicResults": {
+          "type": "boolean",
+          "description": "Toggle untuk menampilkan hasil quick count ke publik sebelum pemilihan ditutup."
+        },
+        "announcement": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Teks pengumuman yang tampil di dashboard admin dan bilik."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan pengaturan terakhir."
+        }
+      },
+      "required": [
+        "schoolName",
+        "schoolLogoUrl",
+        "isElectionOpen",
+        "voteTimeoutSeconds",
+        "resetAfterSubmitSeconds",
+        "officerMode",
+        "showPublicResults",
+        "announcement",
+        "updatedAt"
+      ]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Pasangan calon ketua dan wakil untuk OSIS, Pramuka, atau PMR.",
+      "type": "object",
+      "properties": {
+        "org": {
+          "type": "string",
+          "enum": ["OSIS", "PRAMUKA", "PMR"],
+          "description": "Organisasi tempat pasangan calon mencalonkan diri."
+        },
+        "number": {
+          "type": "integer",
+          "description": "Nomor urut pasangan calon (1-99)."
+        },
+        "ketuaName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Nama lengkap calon ketua."
+        },
+        "wakilName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Nama lengkap calon wakil ketua."
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Link Google Drive asli untuk foto pasangan calon."
+        },
+        "vision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Visi pasangan calon."
+        },
+        "mission": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000,
+          "description": "Misi pasangan calon."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan data paslon."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan data paslon."
+        }
+      },
+      "required": [
+        "org",
+        "number",
+        "ketuaName",
+        "wakilName",
+        "photoUrl",
+        "vision",
+        "mission",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Voter": {
+      "title": "Voter",
+      "description": "Daftar pemilih tetap (siswa, guru, karyawan) beserta status sudah memilih.",
+      "type": "object",
+      "properties": {
+        "voterNumber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Nomor NISN (siswa) atau NIP/NIK (guru/karyawan)."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nama lengkap pemilih."
+        },
+        "classOrRole": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Kelas (untuk siswa) atau jabatan/mapel (untuk guru dan karyawan)."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["siswa", "guru", "karyawan"],
+          "description": "Kategori warga sekolah."
+        },
+        "hasVoted": {
+          "type": "boolean",
+          "description": "Status apakah pemilih sudah menggunakan hak pilihnya."
+        },
+        "votedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pemilih mengirimkan surat suara (null jika belum memilih)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu penambahan data pemilih."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan data pemilih."
+        }
+      },
+      "required": [
+        "voterNumber",
+        "name",
+        "classOrRole",
+        "category",
+        "hasVoted",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "VoteBallot": {
+      "title": "VoteBallot",
+      "description": "Dokumen suara rahasia terpisah dari identitas pemilih (tanpa ID pemilih).",
+      "type": "object",
+      "properties": {
+        "electionScope": {
+          "type": "string",
+          "enum": ["smpn1tambak"],
+          "description": "Penanda ruang lingkup pemilihan untuk validasi query yang aman."
+        },
+        "osisCandidateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID paslon OSIS yang dipilih."
+        },
+        "pramukaCandidateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID paslon Pramuka yang dipilih."
+        },
+        "pmrCandidateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID paslon PMR yang dipilih."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pencatatan suara di server."
+        }
+      },
+      "required": [
+        "electionScope",
+        "osisCandidateId",
+        "pramukaCandidateId",
+        "pmrCandidateId",
+        "createdAt"
+      ]
+    },
+    "PanitiaUser": {
+      "title": "PanitiaUser",
+      "description": "Akun panitia dan admin e-voting beserta peran dan status aktifnya.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "description": "Alamat email / username akun panitia."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nama lengkap panitia atau admin."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "panitia"],
+          "description": "Peran akses pengguna (admin penuh atau panitia)."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Status keaktifan akun panitia."
+        },
+        "mustChangePassword": {
+          "type": "boolean",
+          "description": "Menandai apakah pengguna disarankan mengganti password awal."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan akun."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan akun terakhir."
+        }
+      },
+      "required": ["email", "name", "role", "active", "mustChangePassword", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/settings/election": {
+      "schema": { "$ref": "#/entities/ElectionSettings" },
+      "description": "Dokumen tunggal pengaturan pemilihan SMP Negeri 1 Tambak."
+    },
+    "/candidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/Candidate" },
+      "description": "Koleksi pasangan calon OSIS, Pramuka, dan PMR."
+    },
+    "/voters/{voterId}": {
+      "schema": { "$ref": "#/entities/Voter" },
+      "description": "Koleksi pemilih dengan document ID berupa NISN/NIP/NIK untuk mencegah duplikat dan memverifikasi status memilih."
+    },
+    "/votes/{voteId}": {
+      "schema": { "$ref": "#/entities/VoteBallot" },
+      "description": "Koleksi suara anonim tanpa menyimpan identitas pemilih."
+    },
+    "/panitia/{panitiaId}": {
+      "schema": { "$ref": "#/entities/PanitiaUser" },
+      "description": "Koleksi akun panitia/admin dan perannya."
+    }
+  }
+}
