@@ -100,7 +100,6 @@ function AppContent() {
               name: data.name || currentUser.displayName || 'Panitia',
               role: data.role,
               active: Boolean(data.active),
-              mustChangePassword: Boolean(data.mustChangePassword),
               createdAt: data.createdAt,
               updatedAt: data.updatedAt,
             });
@@ -120,7 +119,6 @@ function AppContent() {
             name: currentUser.displayName || 'Admin Sekolah',
             role: 'admin',
             active: true,
-            mustChangePassword: false,
           });
           setAuthReady(true);
           return;

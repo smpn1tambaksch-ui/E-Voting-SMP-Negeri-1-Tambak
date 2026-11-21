@@ -15,10 +15,8 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Eye,
   ShieldCheck,
   UserCheck,
-  X,
 } from 'lucide-react';
 import { db } from '../firebase';
 import { Candidate, ElectionSettings, Organization, Voter } from '../types';
@@ -85,6 +83,16 @@ const ORG_CONFIG: Record<
 const ORG_ORDER: Organization[] = ['OSIS', 'PRAMUKA', 'PMR'];
 
 /**
+ * Mengubah teks misi (satu baris per butir) menjadi daftar bersih tanpa nomor ganda.
+ */
+function parseMissionLines(mission: string): string[] {
+  return mission
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^(?:\d+[.)]|[-•*])\s*/, '').trim())
+    .filter((line) => line.length > 0);
+}
+
+/**
  * Halaman Bilik Suara (Pemilih) yang dirancang sederhana, responsif,
  * ramah layar sentuh (tombol >= 56px), dengan timer sesi otomatis.
  */
@@ -102,7 +110,6 @@ export const BoothView: React.FC<BoothViewProps> = ({
   const [activeVoter, setActiveVoter] = useState<Voter | null>(null);
   const [activeOrg, setActiveOrg] = useState<Organization>('OSIS');
   const [selections, setSelections] = useState<Partial<Record<Organization, Candidate>>>({});
-  const [visionModalCandidate, setVisionModalCandidate] = useState<Candidate | null>(null);
 
   const [timeLeft, setTimeLeft] = useState<number>(settings.voteTimeoutSeconds);
   const [resetCountdown, setResetCountdown] = useState<number>(settings.resetAfterSubmitSeconds);
@@ -135,7 +142,6 @@ export const BoothView: React.FC<BoothViewProps> = ({
     setActiveVoter(null);
     setActiveOrg('OSIS');
     setSelections({});
-    setVisionModalCandidate(null);
     setLookupError(null);
     setSubmitError(null);
     setIsSubmitting(false);
@@ -675,21 +681,23 @@ export const BoothView: React.FC<BoothViewProps> = ({
                 </div>
               </div>
 
-              {/* Kartu Paslon untuk Organisasi Aktif */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Kartu Paslon untuk Organisasi Aktif (rata tengah, lebar maks 400px, tinggi sama) */}
+              <div className="flex flex-wrap justify-center items-stretch gap-6">
                 {candidatesByOrg[activeOrg].map((cand) => {
                   const cfg = ORG_CONFIG[activeOrg];
                   const isSelected = selections[activeOrg]?.id === cand.id;
+                  const missionItems = parseMissionLines(cand.mission);
+
                   return (
                     <div
                       key={cand.id}
-                      className={`bg-[#1e293b] rounded-2xl p-5 flex flex-col border-2 transition-all ${
+                      className={`w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] sm:max-w-[400px] bg-[#1e293b] rounded-2xl p-5 flex flex-col border-2 transition-all ${
                         isSelected
                           ? `${cfg.accentBorder} shadow-xl`
                           : 'border-slate-700/80 hover:border-slate-500'
                       }`}
                     >
-                      {/* Foto 3:4 & Badge Nomor Urut */}
+                      {/* Foto 3:4 & Satu Badge Nomor Urut di Pojok */}
                       <div className="relative mb-4">
                         <DriveImage
                           url={cand.photoUrl}
@@ -711,32 +719,41 @@ export const BoothView: React.FC<BoothViewProps> = ({
                       </div>
 
                       {/* Nama Ketua & Wakil */}
-                      <div className="mb-3">
+                      <div className="mb-4 pb-4 border-b border-slate-700/70">
                         <div className="text-xs text-slate-400">Ketua &amp; Wakil Ketua</div>
                         <h2 className="text-lg font-bold text-white leading-snug mt-0.5">
                           {cand.ketuaName}
                         </h2>
-                        <div className="text-sm font-semibold text-slate-300">
+                        <div className="text-[15px] font-semibold text-slate-300">
                           &amp; {cand.wakilName}
                         </div>
                       </div>
 
-                      {/* Cuplikan Visi */}
-                      <p className="text-sm text-slate-300/90 line-clamp-3 mb-5 flex-1 leading-relaxed">
-                        {cand.vision}
-                      </p>
+                      {/* Visi & Misi Langsung Tampil (teks minimal 14-15px, jarak lega) */}
+                      <div className="flex-1 space-y-4 mb-6">
+                        <div>
+                          <div className="text-xs font-bold tracking-wider uppercase text-slate-400 mb-1">
+                            VISI
+                          </div>
+                          <p className="text-[15px] leading-relaxed text-slate-200">
+                            {cand.vision}
+                          </p>
+                        </div>
 
-                      {/* Tombol Aksi Sentuh (>= 56px untuk Pilih) */}
-                      <div className="space-y-2.5 mt-auto">
-                        <button
-                          type="button"
-                          onClick={() => setVisionModalCandidate(cand)}
-                          className="w-full min-h-[48px] px-4 rounded-xl bg-[#0f172a] hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          <Eye className="w-4 h-4" />
-                          <span>Lihat Visi Misi</span>
-                        </button>
+                        <div>
+                          <div className="text-xs font-bold tracking-wider uppercase text-slate-400 mb-1.5">
+                            MISI
+                          </div>
+                          <ol className="list-decimal pl-5 space-y-1.5 text-[15px] leading-relaxed text-slate-200">
+                            {missionItems.map((item, idx) => (
+                              <li key={idx}>{item}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      </div>
 
+                      {/* Tombol Pilih menempel sejajar di bagian bawah kartu */}
+                      <div className="mt-auto">
                         <button
                           type="button"
                           onClick={() => handleSelectCandidate(cand)}
@@ -935,85 +952,6 @@ export const BoothView: React.FC<BoothViewProps> = ({
           )}
         </AnimatePresence>
       </main>
-
-      {/* Modal Detail Visi & Misi Paslon */}
-      {visionModalCandidate && (
-        <div
-          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-[#1e293b] border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl">
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <div>
-                <div className={`text-xs font-bold uppercase tracking-wider ${ORG_CONFIG[visionModalCandidate.org].accentText}`}>
-                  {ORG_CONFIG[visionModalCandidate.org].label} · Paslon Nomor {visionModalCandidate.number}
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white mt-1">
-                  {visionModalCandidate.ketuaName} &amp; {visionModalCandidate.wakilName}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setVisionModalCandidate(null)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-                aria-label="Tutup modal visi misi"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="sm:col-span-1">
-                <DriveImage
-                  url={visionModalCandidate.photoUrl}
-                  alt={`Foto ${visionModalCandidate.ketuaName}`}
-                  fallbackText={`${visionModalCandidate.ketuaName} ${visionModalCandidate.wakilName}`}
-                  accentClass={ORG_CONFIG[visionModalCandidate.org].fallbackGrad}
-                />
-              </div>
-              <div className="sm:col-span-2 space-y-5">
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Visi
-                  </h3>
-                  <p className="text-slate-100 text-sm sm:text-base leading-relaxed whitespace-pre-line">
-                    {visionModalCandidate.vision}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Misi
-                  </h3>
-                  <p className="text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-line">
-                    {visionModalCandidate.mission}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-5 border-t border-slate-700 flex flex-col sm:flex-row gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setVisionModalCandidate(null)}
-                className="min-h-[48px] px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold cursor-pointer"
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleSelectCandidate(visionModalCandidate);
-                  setVisionModalCandidate(null);
-                }}
-                className={`min-h-[48px] px-6 rounded-xl ${ORG_CONFIG[visionModalCandidate.org].buttonBg} text-white font-bold cursor-pointer`}
-              >
-                Pilih Paslon Ini
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

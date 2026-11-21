@@ -153,7 +153,6 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({
         name: setupName.trim() || 'Admin Sekolah',
         role: 'admin',
         active: true,
-        mustChangePassword: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

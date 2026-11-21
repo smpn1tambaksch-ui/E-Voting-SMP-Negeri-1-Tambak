@@ -75,7 +75,6 @@ export const AdminPanitiaSection: React.FC<AdminPanitiaSectionProps> = ({
           name: d.data().name,
           role: d.data().role,
           active: Boolean(d.data().active),
-          mustChangePassword: Boolean(d.data().mustChangePassword),
           createdAt: d.data().createdAt,
           updatedAt: d.data().updatedAt,
         }));
@@ -114,7 +113,6 @@ export const AdminPanitiaSection: React.FC<AdminPanitiaSectionProps> = ({
         name: name.trim().slice(0, 120),
         role,
         active: true,
-        mustChangePassword: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -168,10 +166,6 @@ export const AdminPanitiaSection: React.FC<AdminPanitiaSectionProps> = ({
   const handleResetPassword = async (target: PanitiaUser) => {
     try {
       await sendPasswordResetEmail(auth, target.email);
-      await updateDoc(doc(db, 'panitia', target.id), {
-        mustChangePassword: true,
-        updatedAt: serverTimestamp(),
-      });
       setFeedback({
         type: 'success',
         message: `Tautan reset password telah dikirim ke email ${target.email}.`,

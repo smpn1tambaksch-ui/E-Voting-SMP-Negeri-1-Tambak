@@ -15,7 +15,6 @@ export interface PanitiaUser {
   name: string;
   role: PanitiaRole;
   active: boolean;
-  mustChangePassword: boolean;
   createdAt?: unknown;
   updatedAt?: unknown;
 }

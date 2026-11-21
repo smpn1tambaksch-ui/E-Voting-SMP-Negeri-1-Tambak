@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   AlertTriangle,
   BookOpen,
   CheckCircle2,
+  KeyRound,
   RotateCcw,
   Save,
 } from 'lucide-react';
 import { resetDummyData } from '../../data/seedData';
-import { db, handleFirestoreError, OperationType } from '../../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../../firebase';
 import { ElectionSettings } from '../../types';
 import { DriveImage } from '../DriveImage';
 
@@ -45,6 +47,16 @@ export const AdminSettingsSection: React.FC<AdminSettingsSectionProps> = ({
 
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+
+  // Ubah password manual oleh panitia/admin yang sedang login (tidak pernah otomatis)
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdFeedback, setPwdFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +97,82 @@ export const AdminSettingsSection: React.FC<AdminSettingsSectionProps> = ({
       );
     } finally {
       setResetting(false);
+    }
+  };
+
+  const handleManualChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdFeedback(null);
+
+    const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) {
+      setPwdFeedback({
+        type: 'error',
+        message: 'Sesi login tidak ditemukan. Silakan masuk ulang.',
+      });
+      return;
+    }
+
+    if (!currentPassword) {
+      setPwdFeedback({
+        type: 'error',
+        message: 'Masukkan password saat ini terlebih dahulu.',
+      });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwdFeedback({
+        type: 'error',
+        message: 'Password baru minimal harus 6 karakter.',
+      });
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPwdFeedback({
+        type: 'error',
+        message: 'Konfirmasi password baru tidak cocok.',
+      });
+      return;
+    }
+
+    setPwdSaving(true);
+    try {
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        currentPassword
+      );
+      await reauthenticateWithCredential(currentUser, credential);
+      await updatePassword(currentUser, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPwdFeedback({
+        type: 'success',
+        message: 'Password akun Anda berhasil diperbarui.',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (
+        msg.includes('wrong-password') ||
+        msg.includes('invalid-credential')
+      ) {
+        setPwdFeedback({
+          type: 'error',
+          message: 'Password saat ini salah.',
+        });
+      } else if (msg.includes('requires-recent-login')) {
+        setPwdFeedback({
+          type: 'error',
+          message: 'Silakan logout lalu masuk ulang sebelum mengganti password.',
+        });
+      } else {
+        setPwdFeedback({
+          type: 'error',
+          message: `Gagal memperbarui password: ${msg}`,
+        });
+      }
+    } finally {
+      setPwdSaving(false);
     }
   };
 
@@ -325,6 +413,91 @@ export const AdminSettingsSection: React.FC<AdminSettingsSectionProps> = ({
 // 3. Pembacaan koleksi votes hanya diizinkan untuk isAdmin() atau setelah pemilihan ditutup / showPublicResults == true.`}
         </pre>
       </section>
+
+      {/* Ubah Password Akun Saya (Manual via Menu Pengaturan) */}
+      <form
+        onSubmit={handleManualChangePassword}
+        className="bg-[#1e293b] border border-slate-700/80 rounded-2xl p-6 space-y-5"
+      >
+        <div className="flex items-center gap-2.5">
+          <KeyRound className="w-5 h-5 text-amber-400" />
+          <div>
+            <h2 className="text-base font-bold text-white">Ubah Password Akun Saya</h2>
+            <p className="text-xs text-slate-400">
+              Opsional: ganti password akun panel panitia yang sedang Anda gunakan.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Password Saat Ini
+            </label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Password sekarang"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f172a] border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Password Baru (min. 6 karakter)
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Masukkan password baru"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f172a] border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Konfirmasi Password Baru
+            </label>
+            <input
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              placeholder="Ulangi password baru"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f172a] border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {pwdFeedback && (
+          <div
+            className={`rounded-xl p-3 text-xs flex items-center gap-2 border ${
+              pwdFeedback.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200'
+                : 'bg-rose-500/10 border-rose-500/40 text-rose-200'
+            }`}
+          >
+            {pwdFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{pwdFeedback.message}</span>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={pwdSaving}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 disabled:opacity-60 text-white text-xs font-bold cursor-pointer"
+          >
+            <KeyRound className="w-4 h-4 text-amber-400" />
+            <span>{pwdSaving ? 'Memperbarui...' : 'Perbarui Password'}</span>
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

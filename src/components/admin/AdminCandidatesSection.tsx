@@ -382,15 +382,18 @@ export const AdminCandidatesSection: React.FC<AdminCandidatesSectionProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Misi
+                  Misi (tulis satu butir misi per baris)
                 </label>
                 <textarea
                   rows={4}
                   value={mission}
                   onChange={(e) => setMission(e.target.value)}
-                  placeholder="Tuliskan poin-poin misi pasangan calon..."
+                  placeholder={'Menghidupkan kembali ekstrakurikuler minat dan bakat siswa.\nMengadakan program Jumat Bersih dan Peduli Lingkungan.\nMembuka kotak aspirasi siswa secara berkala.'}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f172a] border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
                 />
+                <p className="text-xs text-slate-400 mt-1">
+                  Setiap baris otomatis ditampilkan sebagai daftar bernomor (1, 2, 3, ...) pada kartu surat suara.
+                </p>
               </div>
 
               {formError && (

@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { User, signOut, updatePassword } from 'firebase/auth';
-import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { User, signOut } from 'firebase/auth';
+import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
-  KeyRound,
   LogOut,
   Menu,
   Monitor,
@@ -79,54 +78,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [now, setNow] = useState(() => new Date());
   const autoSeededRef = useRef(false);
 
-  // Dialog Ganti Password Awal (disarankan saat mustChangePassword === true)
-  const [showChangePwdDialog, setShowChangePwdDialog] = useState(
-    Boolean(panitiaProfile.mustChangePassword)
-  );
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [pwdSaving, setPwdSaving] = useState(false);
-  const [pwdError, setPwdError] = useState<string | null>(null);
-
   const visibleMenuItems = useMemo(() => {
     return MENU_ITEMS.filter(
       (item) => !item.adminOnly || panitiaProfile.role === 'admin'
     );
   }, [panitiaProfile.role]);
-
-  const handleSaveNewPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPwdError(null);
-    if (newPassword.length < 6) {
-      setPwdError('Password baru minimal harus 6 karakter.');
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      setPwdError('Konfirmasi password tidak cocok.');
-      return;
-    }
-
-    setPwdSaving(true);
-    try {
-      await updatePassword(user, newPassword);
-      await updateDoc(doc(db, 'panitia', user.uid), {
-        mustChangePassword: false,
-        updatedAt: serverTimestamp(),
-      });
-      setShowChangePwdDialog(false);
-      setNewPassword('');
-      setConfirmNewPassword('');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('requires-recent-login')) {
-        setPwdError('Sesi login terlalu lama. Silakan logout lalu masuk ulang sebelum mengganti password.');
-      } else {
-        setPwdError(`Gagal mengganti password: ${msg}`);
-      }
-    } finally {
-      setPwdSaving(false);
-    }
-  };
 
   // Jam realtime untuk kartu glassmorphism di Hero Banner
   useEffect(() => {
@@ -590,90 +546,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </main>
       </div>
-
-      {/* Dialog Disarankan Ganti Password Awal */}
-      {showChangePwdDialog && (
-        <div
-          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-[#1e293b] border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center shrink-0">
-                  <KeyRound className="w-5 h-5 text-amber-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Ganti Password Awal</h2>
-                  <p className="text-xs text-slate-400">
-                    Disarankan demi keamanan akun panel panitia.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowChangePwdDialog(false)}
-                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
-                aria-label="Tutup dialog ganti password"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveNewPassword} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Password Baru (minimal 6 karakter)
-                </label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Masukkan password baru"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f172a] border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Konfirmasi Password Baru
-                </label>
-                <input
-                  type="password"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  placeholder="Ulangi password baru"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f172a] border border-slate-700 text-white text-sm outline-none focus:border-blue-500"
-                />
-              </div>
-
-              {pwdError && (
-                <div className="rounded-xl bg-rose-500/10 border border-rose-500/40 p-3 text-xs text-rose-200">
-                  {pwdError}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowChangePwdDialog(false)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer"
-                >
-                  Nanti saja
-                </button>
-                <button
-                  type="submit"
-                  disabled={pwdSaving}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-xs font-bold cursor-pointer"
-                >
-                  {pwdSaving ? 'Menyimpan...' : 'Simpan Password Baru'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

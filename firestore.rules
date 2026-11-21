@@ -139,7 +139,7 @@ service cloud.firestore {
 
     function isValidPanitia(data) {
       return data.keys().hasAll([
-          'email', 'name', 'role', 'active', 'mustChangePassword', 'createdAt', 'updatedAt'
+          'email', 'name', 'role', 'active', 'createdAt', 'updatedAt'
         ]) &&
         data.keys().hasOnly([
           'email', 'name', 'role', 'active', 'mustChangePassword', 'createdAt', 'updatedAt'
@@ -148,7 +148,7 @@ service cloud.firestore {
         data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
         data.role in ['admin', 'panitia'] &&
         data.active is bool &&
-        data.mustChangePassword is bool &&
+        (!('mustChangePassword' in data) || data.mustChangePassword is bool) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -235,23 +235,10 @@ service cloud.firestore {
         );
       allow update: if isValidId(panitiaId) && isValidPanitia(incoming()) &&
         incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time && (
-          // SuperAdmin dapat mengubah nama, peran, status aktif, dan flag ganti password
-          (isSuperAdmin() &&
-            incoming().email == existing().email &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'active', 'mustChangePassword', 'updatedAt'])
-          ) ||
-          // Pemilik akun hanya boleh menandai mustChangePassword = false setelah mengganti password
-          (isSignedIn() &&
-            request.auth.uid == panitiaId &&
-            incoming().email == existing().email &&
-            incoming().name == existing().name &&
-            incoming().role == existing().role &&
-            incoming().active == existing().active &&
-            incoming().mustChangePassword == false &&
-            incoming().diff(existing()).affectedKeys().hasOnly(['mustChangePassword', 'updatedAt'])
-          )
-        );
+        incoming().updatedAt == request.time &&
+        isSuperAdmin() &&
+        incoming().email == existing().email &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'active', 'updatedAt']);
       allow delete: if isSuperAdmin() && isValidId(panitiaId) && panitiaId != request.auth.uid;
     }
   }

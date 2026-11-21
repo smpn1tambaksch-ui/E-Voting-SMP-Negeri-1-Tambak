@@ -255,10 +255,6 @@
           "type": "boolean",
           "description": "Status keaktifan akun panitia."
         },
-        "mustChangePassword": {
-          "type": "boolean",
-          "description": "Menandai apakah pengguna disarankan mengganti password awal."
-        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -270,7 +266,7 @@
           "description": "Waktu pembaruan akun terakhir."
         }
       },
-      "required": ["email", "name", "role", "active", "mustChangePassword", "createdAt", "updatedAt"]
+      "required": ["email", "name", "role", "active", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
